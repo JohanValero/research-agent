@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import logger
-from app.routers import agent, items, users, chats, messages
+from app.routers import agent, items, users, chats, messages, chat_stream
 from app.db.mongodb import mongodb
 
 @asynccontextmanager
@@ -37,6 +37,7 @@ app.include_router(agent.router)
 app.include_router(users.router)
 app.include_router(chats.router)
 app.include_router(messages.router)
+app.include_router(chat_stream.router)
 
 @app.get("/")
 def read_root():

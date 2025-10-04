@@ -147,6 +147,18 @@
         .message {
             margin-bottom: 20px;
             max-width: 80%;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
         
         .message.human {
@@ -173,6 +185,10 @@
         .message.human .message-content {
             background: #667eea;
             color: white;
+        }
+
+        .message.agent.streaming .message-content {
+            border-left: 3px solid #667eea;
         }
         
         .fragment {
@@ -269,14 +285,6 @@
             color: #999;
         }
         
-        .btn-secondary {
-            background: #6c757d;
-        }
-        
-        .btn-danger {
-            background: #dc3545;
-        }
-        
         .user-info {
             background: #e8f5e9;
             padding: 12px;
@@ -285,15 +293,20 @@
             font-size: 0.9em;
             line-height: 1.6;
         }
-        
-        .debug-info {
-            background: #fff3cd;
-            padding: 8px;
-            border-radius: 4px;
-            margin: 10px 0;
-            font-size: 0.75em;
-            font-family: monospace;
-            word-break: break-all;
+
+        .streaming-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #667eea;
+            border-radius: 50%;
+            margin-left: 8px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
         }
     </style>
 </head>
@@ -301,7 +314,7 @@
     <div class="container">
         <div class="header">
             <h1>🤖 Research Agent - Chat Interface</h1>
-            <p>Sistema de mensajería con fragmentos enriquecidos</p>
+            <p>Sistema de mensajería con agente de investigación streaming</p>
         </div>
         
         <div class="main-content">
@@ -351,7 +364,6 @@
                         <textarea id="messageInput" rows="3" placeholder="Escribe aquí..." disabled></textarea>
                     </div>
                     <button onclick="sendMessage()" id="sendMessageBtn" disabled>Enviar</button>
-                    <button onclick="sendComplexMessage()" class="btn-secondary" id="sendComplexBtn" disabled>Enviar Mensaje Complejo (Demo)</button>
                 </div>
             </div>
         </div>
@@ -362,6 +374,7 @@
         let currentChatId = null;
         let lastMessageId = null;
         let chats = [];
+        let isStreaming = false;
         
         const API_BASE = 'http://localhost:8000';
 
@@ -547,7 +560,6 @@
             renderChatsList();
             
             document.getElementById('sendMessageBtn').disabled = false;
-            document.getElementById('sendComplexBtn').disabled = false;
             
             await loadMessages();
         }
@@ -588,13 +600,15 @@
             container.scrollTop = container.scrollHeight;
         }
         
-        function renderMessage(message) {
+        function renderMessage(message, isStreaming = false) {
             const fragmentsHtml = message.fragments.map(fragment => renderFragment(fragment)).join('');
+            const streamingClass = isStreaming ? 'streaming' : '';
+            const streamingIndicator = isStreaming ? '<span class="streaming-indicator"></span>' : '';
             
             return `
-                <div class="message ${message.user_type.toLowerCase()}">
+                <div class="message ${message.user_type.toLowerCase()} ${streamingClass}" id="msg-${message._id || 'temp'}">
                     <div class="message-header">
-                        ${message.user_type} - ${new Date(message.created_at).toLocaleTimeString()}
+                        ${message.user_type}${streamingIndicator} - ${new Date(message.created_at || Date.now()).toLocaleTimeString()}
                     </div>
                     <div class="message-content">
                         ${fragmentsHtml}
@@ -676,10 +690,44 @@
                 showStatus('Escribe un mensaje y selecciona un chat', true);
                 return;
             }
+
+            if (isStreaming) {
+                showStatus('Espera a que termine la respuesta actual', true);
+                return;
+            }
             
             try {
+                // Deshabilitar input mientras se procesa
+                document.getElementById('messageInput').disabled = true;
+                document.getElementById('sendMessageBtn').disabled = true;
+                isStreaming = true;
+
                 console.log('Enviando mensaje al chat:', currentChatId, 'previous:', lastMessageId);
-                const response = await fetch(`${API_BASE}/messages/`, {
+                
+                // Crear el mensaje del usuario en la UI inmediatamente
+                const userMessage = {
+                    _id: 'temp-user-' + Date.now(),
+                    user_type: 'HUMAN',
+                    fragments: [{type: 'text', content: messageText}],
+                    created_at: new Date().toISOString()
+                };
+                
+                appendMessageToUI(userMessage);
+                document.getElementById('messageInput').value = '';
+
+                // Crear mensaje temporal del agente
+                const agentMessageId = 'temp-agent-' + Date.now();
+                const agentMessage = {
+                    _id: agentMessageId,
+                    user_type: 'AGENT',
+                    fragments: [],
+                    created_at: new Date().toISOString()
+                };
+                
+                appendMessageToUI(agentMessage, true);
+
+                // Realizar request con streaming
+                const response = await fetch(`${API_BASE}/chat-stream/send`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
@@ -691,76 +739,83 @@
                         ]
                     })
                 });
-                
-                if (response.ok) {
-                    document.getElementById('messageInput').value = '';
-                    await loadMessages();
-                } else {
-                    const error = await response.json();
-                    showStatus('Error al enviar: ' + error.detail, true);
+
+                if (!response.ok) {
+                    throw new Error('Error en la respuesta del servidor');
                 }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const {done, value} = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = JSON.parse(line.substring(6));
+                            handleStreamEvent(data, agentMessageId);
+                        }
+                    }
+                }
+
+                // Recargar mensajes para obtener los IDs correctos de la BD
+                await loadMessages();
+
             } catch (error) {
                 console.error('Error:', error);
-                showStatus('Error de conexión al enviar mensaje', true);
+                showStatus('Error al enviar mensaje', true);
+            } finally {
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('sendMessageBtn').disabled = false;
+                isStreaming = false;
             }
         }
-        
-        async function sendComplexMessage() {
-            if (!currentChatId) {
-                showStatus('Selecciona un chat primero', true);
-                return;
-            }
-            
-            try {
-                const response = await fetch(`${API_BASE}/messages/`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        chat_id: currentChatId,
-                        previous_message_id: lastMessageId,
-                        user_type: 'AGENT',
-                        fragments: [
-                            {
-                                type: 'text',
-                                content: 'Hola, soy tu asistente de búsqueda y te ayudaré a conocer las empresas en tu región.'
-                            },
-                            {
-                                type: 'thought',
-                                content: 'Ahora requiero consultar la base de datos para obtener información actualizada.'
-                            },
-                            {
-                                type: 'thought',
-                                content: 'Se obtuvieron 15 registros de la base de datos. Debo informar al usuario.'
-                            },
-                            {
-                                type: 'text',
-                                content: 'Se obtuvieron 15 registros de las organizaciones trabajando en tu región.'
-                            },
-                            {
-                                type: 'table',
-                                content: {
-                                    headers: ['Empresa', 'Sector', 'Empleados'],
-                                    rows: [
-                                        ['TechCorp', 'Tecnología', '150'],
-                                        ['DataSolutions', 'Análisis', '85'],
-                                        ['CloudServices', 'Cloud', '200']
-                                    ]
-                                }
-                            }
-                        ]
-                    })
-                });
+
+        function appendMessageToUI(message, isStreaming = false) {
+            const container = document.getElementById('messagesContainer');
+            const messageHtml = renderMessage(message, isStreaming);
+            container.insertAdjacentHTML('beforeend', messageHtml);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function handleStreamEvent(data, agentMessageId) {
+            console.log('Stream event:', data);
+
+            const messageElement = document.getElementById(`msg-${agentMessageId}`);
+            if (!messageElement) return;
+
+            const contentElement = messageElement.querySelector('.message-content');
+
+            if (data.type === 'user_message_saved') {
+                console.log('Mensaje de usuario guardado:', data.message_id);
+            } else if (data.type === 'agent_start') {
+                // Mensaje de inicio del agente
+                console.log('Agente iniciado');
+            } else if (data.type === 'done') {
+                console.log('Streaming completado');
+                messageElement.classList.remove('streaming');
+                const indicator = messageElement.querySelector('.streaming-indicator');
+                if (indicator) indicator.remove();
+            } else if (data.type === 'error') {
+                showStatus('Error: ' + data.content, true);
+            } else {
+                // Agregar fragmento
+                const fragmentType = ['analysis', 'research'].includes(data.type) ? 'thought' : 'text';
+                const fragment = {
+                    type: fragmentType,
+                    content: data.content
+                };
                 
-                if (response.ok) {
-                    await loadMessages();
-                    showStatus('Mensaje complejo enviado exitosamente');
-                } else {
-                    const error = await response.json();
-                    showStatus('Error: ' + error.detail, true);
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                showStatus('Error de conexión', true);
+                const fragmentHtml = renderFragment(fragment);
+                contentElement.insertAdjacentHTML('beforeend', fragmentHtml);
+                
+                // Auto-scroll
+                const container = document.getElementById('messagesContainer');
+                container.scrollTop = container.scrollHeight;
             }
         }
         
