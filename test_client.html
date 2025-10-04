@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cliente de Prueba - Research Agent</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+        }
+        
+        .input-section {
+            padding: 30px;
+            background: #f8f9fa;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .output-section {
+            padding: 30px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .output-title {
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ccc;
+        }
+        
+        .status-indicator.active {
+            background: #4caf50;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            animation: slideIn 0.3s ease-out;
+            border-left: 4px solid #667eea;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .message.start {
+            background: #e3f2fd;
+            border-left-color: #2196f3;
+        }
+        
+        .message.analysis {
+            background: #f3e5f5;
+            border-left-color: #9c27b0;
+        }
+        
+        .message.research {
+            background: #fff3e0;
+            border-left-color: #ff9800;
+        }
+        
+        .message.response {
+            background: #e8f5e9;
+            border-left-color: #4caf50;
+        }
+        
+        .message.finalize {
+            background: #fce4ec;
+            border-left-color: #e91e63;
+        }
+        
+        .message.done {
+            background: #e0f2f1;
+            border-left-color: #009688;
+            font-weight: 600;
+        }
+        
+        .message.error {
+            background: #ffebee;
+            border-left-color: #f44336;
+        }
+        
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .node-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .message-content {
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .message-details {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0,0,0,0.05);
+            border-radius: 5px;
+            font-size: 13px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .clear-btn {
+            background: #f44336;
+            padding: 10px 25px;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Research Agent - Prueba de Streaming</h1>
+            <p>Observa cómo cada nodo del grafo procesa tu consulta en tiempo real</p>
+        </div>
+        
+        <div class="input-section">
+            <div class="form-group">
+                <label for="query">Tu consulta:</label>
+                <textarea id="query" placeholder="Escribe tu pregunta aquí...">¿Cómo funciona el machine learning?</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="userid">User ID:</label>
+                <input type="text" id="userid" value="user123" placeholder="Ingresa tu ID de usuario">
+            </div>
+            
+            <div class="form-group">
+                <label for="chatid">Chat ID (opcional):</label>
+                <input type="text" id="chatid" value="chat456" placeholder="Ingresa el ID del chat">
+            </div>
+            
+            <button onclick="sendQuery()" id="sendBtn">Enviar Consulta</button>
+            <button onclick="clearOutput()" class="clear-btn">Limpiar</button>
+        </div>
+        
+        <div class="output-section">
+            <div class="output-title">
+                <span>Respuestas en Tiempo Real</span>
+                <div class="status-indicator" id="statusIndicator"></div>
+            </div>
+            <div id="output"></div>
+        </div>
+    </div>
+
+    <script>
+        let eventSource = null;
+        
+        function sendQuery() {
+            const query = document.getElementById('query').value;
+            const userid = document.getElementById('userid').value;
+            const chatid = document.getElementById('chatid').value;
+            const sendBtn = document.getElementById('sendBtn');
+            const statusIndicator = document.getElementById('statusIndicator');
+            
+            if (!query || !userid) {
+                alert('Por favor ingresa una consulta y un User ID');
+                return;
+            }
+            
+            // Deshabilitar botón mientras procesamos
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Procesando...';
+            statusIndicator.classList.add('active');
+            
+            // Cerrar conexión anterior si existe
+            if (eventSource) {
+                eventSource.close();
+            }
+            
+            // Crear URL con parámetros
+            // Nota: En una implementación real con POST, necesitarías usar fetch
+            // con ReadableStream. Este ejemplo usa GET para simplicidad.
+            // Para tu API, necesitarás adaptar esto.
+            
+            // Simulación usando fetch con ReadableStream
+            fetch('http://localhost:8000/agent/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query: query,
+                    userid: userid,
+                    chatid: chatid
+                })
+            })
+            .then(response => {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                function readStream() {
+                    reader.read().then(({ done, value }) => {
+                        if (done) {
+                            sendBtn.disabled = false;
+                            sendBtn.textContent = 'Enviar Consulta';
+                            statusIndicator.classList.remove('active');
+                            return;
+                        }
+                        
+                        // Decodificar el chunk
+                        const chunk = decoder.decode(value, { stream: true });
+                        
+                        // Procesar líneas SSE
+                        const lines = chunk.split('\n');
+                        lines.forEach(line => {
+                            if (line.startsWith('data: ')) {
+                                const jsonData = line.substring(6);
+                                try {
+                                    const data = JSON.parse(jsonData);
+                                    displayMessage(data);
+                                } catch (e) {
+                                    console.error('Error parsing JSON:', e);
+                                }
+                            }
+                        });
+                        
+                        // Continuar leyendo
+                        readStream();
+                    });
+                }
+                
+                readStream();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                displayMessage({
+                    type: 'error',
+                    content: 'Error de conexión: ' + error.message
+                });
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Enviar Consulta';
+                statusIndicator.classList.remove('active');
+            });
+        }
+        
+        function displayMessage(data) {
+            const output = document.getElementById('output');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${data.type || 'info'}`;
+            
+            let html = '<div class="message-header">';
+            
+            if (data.node) {
+                html += `<span class="node-badge">Nodo: ${data.node}</span>`;
+            }
+            
+            if (data.step) {
+                html += `<span style="font-size: 12px; color: #666;">Paso: ${data.step}</span>`;
+            }
+            
+            html += '</div>';
+            html += `<div class="message-content">${data.content}</div>`;
+            
+            if (data.details && Object.keys(data.details).length > 0) {
+                html += `<div class="message-details">${JSON.stringify(data.details, null, 2)}</div>`;
+            }
+            
+            messageDiv.innerHTML = html;
+            output.appendChild(messageDiv);
+            
+            // Scroll automático al último mensaje
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function clearOutput() {
+            document.getElementById('output').innerHTML = '';
+        }
+        
+        // Permitir enviar con Enter (Ctrl+Enter en textarea)
+        document.getElementById('query').addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                sendQuery();
+            }
+        });
+    </script>
+</body>
+</html>
