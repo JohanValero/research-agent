@@ -35,5 +35,10 @@
   "containerEnv": {
     "PYTHONUNBUFFERED": "1",
     "PYTHONDONTWRITEBYTECODE": "1"
-  }
+  },
+  "runArgs": [
+    "--add-host=host.docker.internal:host-gateway",
+    "--network=host"
+  ],
+  "mounts": []
 }

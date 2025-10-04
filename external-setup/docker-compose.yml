@@ -1,0 +1,16 @@
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+    ports:
+      - "27017:27017"
+    volumes:
+      - agent-mongodb_data:/data/db
+      - agent-mongodb_config:/data/configdb
+volumes:
+  agent-mongodb_data:
+  agent-mongodb_config:
