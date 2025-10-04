@@ -79,7 +79,7 @@ async def generate_response_from_graph(
         }
         yield f"data: {json.dumps(data)}\n\n"
 
-    except Exception as e:
+    except (ValueError, KeyError, TypeError, RuntimeError) as e:
         logger.error("Error en procesamiento: %s", str(e))
         traceback.print_exception(e)
         error_data = {

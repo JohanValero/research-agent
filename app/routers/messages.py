@@ -46,7 +46,7 @@ async def create_message(message: MessageCreate):
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Formato de previous_message_id inválido"
                 )
-            
+
             previous = await collection.find_one({"_id": ObjectId(message.previous_message_id)})
             if not previous:
                 raise HTTPException(

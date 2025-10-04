@@ -70,7 +70,7 @@ async def get_chat(chat_id: str):
     try:
         db: AsyncIOMotorDatabase = mongodb.get_database()
         collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
-        
+
         # Validar formato de ObjectId
         if not ObjectId.is_valid(chat_id):
             raise HTTPException(
@@ -134,7 +134,7 @@ async def update_chat(chat_id: str, chat_update: ChatUpdate):
     try:
         db: AsyncIOMotorDatabase = mongodb.get_database()
         collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
-        
+
         if not ObjectId.is_valid(chat_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -187,7 +187,7 @@ async def delete_chat(chat_id: str):
     try:
         db = mongodb.get_database()
         collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
-        
+
         if not ObjectId.is_valid(chat_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
