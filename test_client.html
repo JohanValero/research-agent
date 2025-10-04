@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cliente de Prueba - Research Agent</title>
+    <title>Research Agent - Chat Interface</title>
     <style>
         * {
             margin: 0;
@@ -13,90 +13,111 @@
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+            background: #f5f5f5;
             padding: 20px;
         }
         
         .container {
-            max-width: 900px;
+            max-width: 1200px;
             margin: 0 auto;
             background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
             overflow: hidden;
         }
         
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 30px;
-            text-align: center;
+            padding: 20px 30px;
         }
         
         .header h1 {
-            font-size: 2em;
-            margin-bottom: 10px;
+            font-size: 1.8em;
+            margin-bottom: 5px;
         }
         
-        .header p {
-            opacity: 0.9;
+        .main-content {
+            display: flex;
+            height: calc(100vh - 150px);
         }
         
-        .input-section {
-            padding: 30px;
-            background: #f8f9fa;
+        .sidebar {
+            width: 300px;
+            border-right: 1px solid #e0e0e0;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #fafafa;
+        }
+        
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .section-title {
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            color: #333;
+            font-weight: 600;
         }
         
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
         
         label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
             font-weight: 600;
-            color: #333;
+            color: #555;
+            font-size: 0.9em;
         }
         
-        input, textarea {
+        input, textarea, select {
             width: 100%;
-            padding: 12px;
+            padding: 10px;
             border: 2px solid #e0e0e0;
-            border-radius: 8px;
+            border-radius: 6px;
             font-size: 14px;
             transition: border-color 0.3s;
         }
         
-        input:focus, textarea:focus {
+        input:focus, textarea:focus, select:focus {
             outline: none;
             border-color: #667eea;
-        }
-        
-        textarea {
-            resize: vertical;
-            min-height: 80px;
         }
         
         button {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            padding: 15px 40px;
-            font-size: 16px;
+            padding: 12px 25px;
+            font-size: 14px;
             font-weight: 600;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
+            margin-right: 10px;
+            margin-top: 5px;
         }
         
-        button:hover {
+        button:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-        
-        button:active {
-            transform: translateY(0);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
         
         button:disabled {
@@ -105,295 +126,647 @@
             transform: none;
         }
         
-        .output-section {
-            padding: 30px;
-            max-height: 600px;
-            overflow-y: auto;
+        .chat-item {
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
         }
         
-        .output-title {
-            font-size: 1.3em;
-            margin-bottom: 20px;
-            color: #333;
-            display: flex;
-            align-items: center;
-            gap: 10px;
+        .chat-item:hover {
+            background: #e9ecef;
         }
         
-        .status-indicator {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #ccc;
-        }
-        
-        .status-indicator.active {
-            background: #4caf50;
-            animation: pulse 1.5s infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+        .chat-item.active {
+            background: #667eea;
+            color: white;
         }
         
         .message {
-            margin-bottom: 15px;
-            padding: 15px;
-            border-radius: 8px;
-            animation: slideIn 0.3s ease-out;
-            border-left: 4px solid #667eea;
+            margin-bottom: 20px;
+            max-width: 80%;
         }
         
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .message.human {
+            margin-left: auto;
         }
         
-        .message.start {
-            background: #e3f2fd;
-            border-left-color: #2196f3;
-        }
-        
-        .message.analysis {
-            background: #f3e5f5;
-            border-left-color: #9c27b0;
-        }
-        
-        .message.research {
-            background: #fff3e0;
-            border-left-color: #ff9800;
-        }
-        
-        .message.response {
-            background: #e8f5e9;
-            border-left-color: #4caf50;
-        }
-        
-        .message.finalize {
-            background: #fce4ec;
-            border-left-color: #e91e63;
-        }
-        
-        .message.done {
-            background: #e0f2f1;
-            border-left-color: #009688;
-            font-weight: 600;
-        }
-        
-        .message.error {
-            background: #ffebee;
-            border-left-color: #f44336;
+        .message.agent {
+            margin-right: auto;
         }
         
         .message-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-        
-        .node-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            background: rgba(0,0,0,0.1);
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
+            font-size: 0.85em;
+            margin-bottom: 5px;
+            color: #666;
         }
         
         .message-content {
-            color: #333;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .message.human .message-content {
+            background: #667eea;
+            color: white;
+        }
+        
+        .fragment {
+            margin-bottom: 12px;
+        }
+        
+        .fragment:last-child {
+            margin-bottom: 0;
+        }
+        
+        .fragment.text p {
+            line-height: 1.6;
+            margin: 0;
+        }
+        
+        .fragment.thought {
+            background: rgba(0,0,0,0.05);
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 3px solid #ff9800;
+            position: relative;
+        }
+        
+        .message.human .fragment.thought {
+            background: rgba(255,255,255,0.2);
+            border-left-color: rgba(255,255,255,0.5);
+        }
+        
+        .thought-toggle {
+            cursor: pointer;
+            user-select: none;
+            font-weight: 600;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .thought-content {
+            margin-top: 8px;
+        }
+        
+        .thought-content.collapsed {
+            display: none;
+        }
+        
+        .fragment.table {
+            overflow-x: auto;
+        }
+        
+        .fragment.table table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .fragment.table th,
+        .fragment.table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .fragment.table th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .message.human .fragment.table th {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .success-msg {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-size: 0.9em;
+        }
+        
+        .error-msg {
+            background: #ffebee;
+            color: #c62828;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-size: 0.9em;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+        }
+        
+        .user-info {
+            background: #e8f5e9;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-size: 0.9em;
             line-height: 1.6;
         }
         
-        .message-details {
-            margin-top: 10px;
-            padding: 10px;
-            background: rgba(0,0,0,0.05);
-            border-radius: 5px;
-            font-size: 13px;
-            font-family: 'Courier New', monospace;
-        }
-        
-        .clear-btn {
-            background: #f44336;
-            padding: 10px 25px;
-            font-size: 14px;
-            margin-left: 10px;
+        .debug-info {
+            background: #fff3cd;
+            padding: 8px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 0.75em;
+            font-family: monospace;
+            word-break: break-all;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🤖 Research Agent - Prueba de Streaming</h1>
-            <p>Observa cómo cada nodo del grafo procesa tu consulta en tiempo real</p>
+            <h1>🤖 Research Agent - Chat Interface</h1>
+            <p>Sistema de mensajería con fragmentos enriquecidos</p>
         </div>
         
-        <div class="input-section">
-            <div class="form-group">
-                <label for="query">Tu consulta:</label>
-                <textarea id="query" placeholder="Escribe tu pregunta aquí...">¿Cómo funciona el machine learning?</textarea>
+        <div class="main-content">
+            <div class="sidebar">
+                <div class="section-title">Gestión de Usuario</div>
+                
+                <div class="form-group">
+                    <label for="newUsername">Crear Usuario:</label>
+                    <input type="text" id="newUsername" placeholder="Username">
+                    <input type="text" id="newName" placeholder="Nombre completo" style="margin-top: 5px;">
+                    <button onclick="createUser()" style="width: 100%;">Crear Nuevo Usuario</button>
+                </div>
+                
+                <div style="border-top: 1px solid #e0e0e0; margin: 15px 0; padding-top: 15px;">
+                    <label for="username">O cargar usuario existente:</label>
+                    <input type="text" id="username" placeholder="Username existente">
+                    <button onclick="loadUser()" style="width: 100%;">Cargar Usuario</button>
+                </div>
+                
+                <div id="statusMessage"></div>
+                <div id="userInfoDisplay"></div>
+                
+                <div class="section-title" style="margin-top: 30px;">Nuevo Chat</div>
+                <div class="form-group">
+                    <label for="chatTitle">Título del chat:</label>
+                    <input type="text" id="chatTitle" placeholder="Nuevo chat">
+                    <button onclick="createNewChat()" style="width: 100%;" id="createChatBtn" disabled>Crear Chat</button>
+                </div>
+                
+                <div class="section-title" style="margin-top: 30px;">Mis Chats</div>
+                <div id="chatsList">
+                    <div style="color: #999; font-size: 0.9em;">Carga un usuario primero</div>
+                </div>
             </div>
             
-            <div class="form-group">
-                <label for="userid">User ID:</label>
-                <input type="text" id="userid" value="user123" placeholder="Ingresa tu ID de usuario">
+            <div class="chat-area">
+                <div class="messages-container" id="messagesContainer">
+                    <div class="empty-state">
+                        <h3>Selecciona o crea un chat para comenzar</h3>
+                        <p style="margin-top: 10px; color: #999;">Primero carga o crea un usuario en el panel izquierdo</p>
+                    </div>
+                </div>
+                
+                <div class="input-area">
+                    <div class="form-group">
+                        <label for="messageInput">Escribe tu mensaje:</label>
+                        <textarea id="messageInput" rows="3" placeholder="Escribe aquí..." disabled></textarea>
+                    </div>
+                    <button onclick="sendMessage()" id="sendMessageBtn" disabled>Enviar</button>
+                    <button onclick="sendComplexMessage()" class="btn-secondary" id="sendComplexBtn" disabled>Enviar Mensaje Complejo (Demo)</button>
+                </div>
             </div>
-            
-            <div class="form-group">
-                <label for="chatid">Chat ID (opcional):</label>
-                <input type="text" id="chatid" value="chat456" placeholder="Ingresa el ID del chat">
-            </div>
-            
-            <button onclick="sendQuery()" id="sendBtn">Enviar Consulta</button>
-            <button onclick="clearOutput()" class="clear-btn">Limpiar</button>
-        </div>
-        
-        <div class="output-section">
-            <div class="output-title">
-                <span>Respuestas en Tiempo Real</span>
-                <div class="status-indicator" id="statusIndicator"></div>
-            </div>
-            <div id="output"></div>
         </div>
     </div>
 
     <script>
-        let eventSource = null;
+        let currentUser = null;
+        let currentChatId = null;
+        let lastMessageId = null;
+        let chats = [];
         
-        function sendQuery() {
-            const query = document.getElementById('query').value;
-            const userid = document.getElementById('userid').value;
-            const chatid = document.getElementById('chatid').value;
-            const sendBtn = document.getElementById('sendBtn');
-            const statusIndicator = document.getElementById('statusIndicator');
+        const API_BASE = 'http://localhost:8000';
+
+        function showStatus(message, isError = false) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.innerHTML = `<div class="${isError ? 'error-msg' : 'success-msg'}">${message}</div>`;
+            setTimeout(() => { statusDiv.innerHTML = ''; }, 5000);
+        }
+
+        async function createUser() {
+            const username = document.getElementById('newUsername').value.trim();
+            const name = document.getElementById('newName').value.trim();
             
-            if (!query || !userid) {
-                alert('Por favor ingresa una consulta y un User ID');
+            if (!username || !name) {
+                showStatus('Por favor completa username y nombre', true);
                 return;
             }
             
-            // Deshabilitar botón mientras procesamos
-            sendBtn.disabled = true;
-            sendBtn.textContent = 'Procesando...';
-            statusIndicator.classList.add('active');
-            
-            // Cerrar conexión anterior si existe
-            if (eventSource) {
-                eventSource.close();
+            try {
+                const response = await fetch(`${API_BASE}/users/`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        username: username,
+                        name: name,
+                        activo: true
+                    })
+                });
+                
+                if (response.ok) {
+                    const user = await response.json();
+                    currentUser = user;
+                    
+                    showStatus(`Usuario ${username} creado exitosamente`);
+                    document.getElementById('newUsername').value = '';
+                    document.getElementById('newName').value = '';
+                    
+                    displayUserInfo();
+                    document.getElementById('createChatBtn').disabled = false;
+                    document.getElementById('messageInput').disabled = false;
+                    await loadUserChats();
+                } else {
+                    const error = await response.json();
+                    showStatus('Error: ' + error.detail, true);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('Error de conexión al crear usuario', true);
+            }
+        }
+
+        async function loadUser() {
+            const username = document.getElementById('username').value.trim();
+            if (!username) {
+                showStatus('Ingresa un username', true);
+                return;
             }
             
-            // Crear URL con parámetros
-            // Nota: En una implementación real con POST, necesitarías usar fetch
-            // con ReadableStream. Este ejemplo usa GET para simplicidad.
-            // Para tu API, necesitarás adaptar esto.
+            try {
+                const response = await fetch(`${API_BASE}/users/${username}`);
+                if (response.ok) {
+                    currentUser = await response.json();
+                    
+                    console.log('Usuario cargado:', currentUser);
+                    showStatus(`Usuario ${currentUser.username} cargado exitosamente`);
+                    
+                    displayUserInfo();
+                    document.getElementById('createChatBtn').disabled = false;
+                    document.getElementById('messageInput').disabled = false;
+                    await loadUserChats();
+                } else {
+                    const error = await response.json();
+                    showStatus('Error: ' + error.detail, true);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('Error de conexión al cargar usuario', true);
+            }
+        }
+
+        function displayUserInfo() {
+            if (!currentUser) return;
             
-            // Simulación usando fetch con ReadableStream
-            fetch('http://localhost:8000/agent/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    query: query,
-                    userid: userid,
-                    chatid: chatid
-                })
-            })
-            .then(response => {
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
+            document.getElementById('userInfoDisplay').innerHTML = `
+                <div class="user-info">
+                    <strong>Usuario Activo:</strong><br>
+                    Nombre: ${currentUser.name}<br>
+                    Username: ${currentUser.username}<br>
+                    <small>ID: ${currentUser._id}</small>
+                </div>
+            `;
+        }
+        
+        async function loadUserChats() {
+            if (!currentUser || !currentUser._id) {
+                console.error('No hay usuario cargado o falta ID');
+                return;
+            }
+            
+            try {
+                console.log('Cargando chats para user_id:', currentUser._id);
+                const response = await fetch(`${API_BASE}/chats/user/${currentUser._id}`);
                 
-                function readStream() {
-                    reader.read().then(({ done, value }) => {
-                        if (done) {
-                            sendBtn.disabled = false;
-                            sendBtn.textContent = 'Enviar Consulta';
-                            statusIndicator.classList.remove('active');
-                            return;
-                        }
-                        
-                        // Decodificar el chunk
-                        const chunk = decoder.decode(value, { stream: true });
-                        
-                        // Procesar líneas SSE
-                        const lines = chunk.split('\n');
-                        lines.forEach(line => {
-                            if (line.startsWith('data: ')) {
-                                const jsonData = line.substring(6);
-                                try {
-                                    const data = JSON.parse(jsonData);
-                                    displayMessage(data);
-                                } catch (e) {
-                                    console.error('Error parsing JSON:', e);
+                if (response.ok) {
+                    chats = await response.json();
+                    console.log('Chats cargados:', chats.length);
+                    renderChatsList();
+                } else {
+                    const error = await response.json();
+                    console.error('Error al cargar chats:', error);
+                    showStatus('Error al cargar chats: ' + error.detail, true);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('Error de conexión al cargar chats', true);
+            }
+        }
+        
+        function renderChatsList() {
+            const container = document.getElementById('chatsList');
+            if (chats.length === 0) {
+                container.innerHTML = '<div style="color: #999; font-size: 0.9em;">No hay chats disponibles</div>';
+                return;
+            }
+            
+            container.innerHTML = chats.map(chat => `
+                <div class="chat-item ${chat._id === currentChatId ? 'active' : ''}" onclick="selectChat('${chat._id}')">
+                    <strong>${chat.title || 'Sin título'}</strong>
+                    <div style="font-size: 0.85em; color: ${chat._id === currentChatId ? '#fff' : '#999'}; margin-top: 4px;">
+                        ${new Date(chat.updated_at).toLocaleString()}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        async function createNewChat() {
+            if (!currentUser || !currentUser._id) {
+                showStatus('Primero carga o crea un usuario', true);
+                return;
+            }
+            
+            const title = document.getElementById('chatTitle').value.trim();
+            
+            try {
+                console.log('Creando chat con user_id:', currentUser._id);
+                const response = await fetch(`${API_BASE}/chats/`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        user_id: currentUser._id,
+                        title: title || 'Nuevo chat',
+                        activo: true
+                    })
+                });
+                
+                if (response.ok) {
+                    const newChat = await response.json();
+                    console.log('Chat creado:', newChat);
+                    chats.unshift(newChat);
+                    renderChatsList();
+                    selectChat(newChat._id);
+                    document.getElementById('chatTitle').value = '';
+                    showStatus('Chat creado exitosamente');
+                } else {
+                    const error = await response.json();
+                    console.error('Error al crear chat:', error);
+                    showStatus('Error: ' + error.detail, true);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('Error de conexión al crear chat', true);
+            }
+        }
+        
+        async function selectChat(chatId) {
+            if (!chatId) {
+                console.error('ChatId es undefined');
+                return;
+            }
+            
+            currentChatId = chatId;
+            lastMessageId = null;
+            renderChatsList();
+            
+            document.getElementById('sendMessageBtn').disabled = false;
+            document.getElementById('sendComplexBtn').disabled = false;
+            
+            await loadMessages();
+        }
+        
+        async function loadMessages() {
+            if (!currentChatId) return;
+            
+            try {
+                console.log('Cargando mensajes para chat:', currentChatId);
+                const response = await fetch(`${API_BASE}/messages/chat/${currentChatId}/history`);
+                
+                if (response.ok) {
+                    const messages = await response.json();
+                    console.log('Mensajes cargados:', messages.length);
+                    renderMessages(messages);
+                    if (messages.length > 0) {
+                        lastMessageId = messages[messages.length - 1]._id;
+                        console.log('Último mensaje ID:', lastMessageId);
+                    }
+                } else {
+                    console.error('Error al cargar mensajes');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('Error al cargar mensajes', true);
+            }
+        }
+        
+        function renderMessages(messages) {
+            const container = document.getElementById('messagesContainer');
+            
+            if (messages.length === 0) {
+                container.innerHTML = '<div class="empty-state"><h3>No hay mensajes en este chat</h3><p style="margin-top: 10px;">Envía el primer mensaje para comenzar</p></div>';
+                return;
+            }
+            
+            container.innerHTML = messages.map(msg => renderMessage(msg)).join('');
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        function renderMessage(message) {
+            const fragmentsHtml = message.fragments.map(fragment => renderFragment(fragment)).join('');
+            
+            return `
+                <div class="message ${message.user_type.toLowerCase()}">
+                    <div class="message-header">
+                        ${message.user_type} - ${new Date(message.created_at).toLocaleTimeString()}
+                    </div>
+                    <div class="message-content">
+                        ${fragmentsHtml}
+                    </div>
+                </div>
+            `;
+        }
+        
+        function renderFragment(fragment) {
+            switch (fragment.type) {
+                case 'text':
+                    return `<div class="fragment text"><p>${escapeHtml(fragment.content)}</p></div>`;
+                
+                case 'thought':
+                    const thoughtId = 'thought-' + Math.random().toString(36).substr(2, 9);
+                    return `
+                        <div class="fragment thought">
+                            <div class="thought-toggle" onclick="toggleThought('${thoughtId}')">
+                                <span id="${thoughtId}-icon">▼</span>
+                                <span>Pensamiento interno</span>
+                            </div>
+                            <div class="thought-content" id="${thoughtId}">
+                                <p>${escapeHtml(fragment.content)}</p>
+                            </div>
+                        </div>
+                    `;
+                
+                case 'table':
+                    return renderTable(fragment.content);
+                
+                default:
+                    return `<div class="fragment"><p>${escapeHtml(JSON.stringify(fragment.content))}</p></div>`;
+            }
+        }
+        
+        function renderTable(tableData) {
+            if (!tableData.headers || !tableData.rows) {
+                return '<div class="fragment">Tabla inválida</div>';
+            }
+            
+            const headers = tableData.headers.map(h => `<th>${escapeHtml(h)}</th>`).join('');
+            const rows = tableData.rows.map(row => 
+                `<tr>${row.map(cell => `<td>${escapeHtml(String(cell))}</td>`).join('')}</tr>`
+            ).join('');
+            
+            return `
+                <div class="fragment table">
+                    <table>
+                        <thead><tr>${headers}</tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            `;
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function toggleThought(thoughtId) {
+            const content = document.getElementById(thoughtId);
+            const icon = document.getElementById(thoughtId + '-icon');
+            
+            if (content.classList.contains('collapsed')) {
+                content.classList.remove('collapsed');
+                icon.textContent = '▼';
+            } else {
+                content.classList.add('collapsed');
+                icon.textContent = '▶';
+            }
+        }
+        
+        async function sendMessage() {
+            const messageText = document.getElementById('messageInput').value.trim();
+            
+            if (!messageText || !currentChatId) {
+                showStatus('Escribe un mensaje y selecciona un chat', true);
+                return;
+            }
+            
+            try {
+                console.log('Enviando mensaje al chat:', currentChatId, 'previous:', lastMessageId);
+                const response = await fetch(`${API_BASE}/messages/`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        chat_id: currentChatId,
+                        previous_message_id: lastMessageId,
+                        user_type: 'HUMAN',
+                        fragments: [
+                            {type: 'text', content: messageText}
+                        ]
+                    })
+                });
+                
+                if (response.ok) {
+                    document.getElementById('messageInput').value = '';
+                    await loadMessages();
+                } else {
+                    const error = await response.json();
+                    showStatus('Error al enviar: ' + error.detail, true);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('Error de conexión al enviar mensaje', true);
+            }
+        }
+        
+        async function sendComplexMessage() {
+            if (!currentChatId) {
+                showStatus('Selecciona un chat primero', true);
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/messages/`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        chat_id: currentChatId,
+                        previous_message_id: lastMessageId,
+                        user_type: 'AGENT',
+                        fragments: [
+                            {
+                                type: 'text',
+                                content: 'Hola, soy tu asistente de búsqueda y te ayudaré a conocer las empresas en tu región.'
+                            },
+                            {
+                                type: 'thought',
+                                content: 'Ahora requiero consultar la base de datos para obtener información actualizada.'
+                            },
+                            {
+                                type: 'thought',
+                                content: 'Se obtuvieron 15 registros de la base de datos. Debo informar al usuario.'
+                            },
+                            {
+                                type: 'text',
+                                content: 'Se obtuvieron 15 registros de las organizaciones trabajando en tu región.'
+                            },
+                            {
+                                type: 'table',
+                                content: {
+                                    headers: ['Empresa', 'Sector', 'Empleados'],
+                                    rows: [
+                                        ['TechCorp', 'Tecnología', '150'],
+                                        ['DataSolutions', 'Análisis', '85'],
+                                        ['CloudServices', 'Cloud', '200']
+                                    ]
                                 }
                             }
-                        });
-                        
-                        // Continuar leyendo
-                        readStream();
-                    });
-                }
-                
-                readStream();
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                displayMessage({
-                    type: 'error',
-                    content: 'Error de conexión: ' + error.message
+                        ]
+                    })
                 });
-                sendBtn.disabled = false;
-                sendBtn.textContent = 'Enviar Consulta';
-                statusIndicator.classList.remove('active');
-            });
+                
+                if (response.ok) {
+                    await loadMessages();
+                    showStatus('Mensaje complejo enviado exitosamente');
+                } else {
+                    const error = await response.json();
+                    showStatus('Error: ' + error.detail, true);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('Error de conexión', true);
+            }
         }
         
-        function displayMessage(data) {
-            const output = document.getElementById('output');
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${data.type || 'info'}`;
-            
-            let html = '<div class="message-header">';
-            
-            if (data.node) {
-                html += `<span class="node-badge">Nodo: ${data.node}</span>`;
-            }
-            
-            if (data.step) {
-                html += `<span style="font-size: 12px; color: #666;">Paso: ${data.step}</span>`;
-            }
-            
-            html += '</div>';
-            html += `<div class="message-content">${data.content}</div>`;
-            
-            if (data.details && Object.keys(data.details).length > 0) {
-                html += `<div class="message-details">${JSON.stringify(data.details, null, 2)}</div>`;
-            }
-            
-            messageDiv.innerHTML = html;
-            output.appendChild(messageDiv);
-            
-            // Scroll automático al último mensaje
-            output.scrollTop = output.scrollHeight;
-        }
-        
-        function clearOutput() {
-            document.getElementById('output').innerHTML = '';
-        }
-        
-        // Permitir enviar con Enter (Ctrl+Enter en textarea)
-        document.getElementById('query').addEventListener('keydown', (e) => {
+        document.getElementById('messageInput').addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key === 'Enter') {
-                sendQuery();
+                sendMessage();
             }
         });
     </script>

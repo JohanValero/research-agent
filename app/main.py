@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import logger
-from app.routers import agent, items, users
+from app.routers import agent, items, users, chats, messages
 from app.db.mongodb import mongodb
 
 @asynccontextmanager
@@ -22,7 +22,7 @@ async def lifespan(_app: FastAPI):
     # Shutdown
     await mongodb.disconnect()
 
-app = FastAPI(title="API Simple", lifespan=lifespan)
+app = FastAPI(title="Research Agent API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -35,8 +35,10 @@ app.add_middleware(
 app.include_router(items.router)
 app.include_router(agent.router)
 app.include_router(users.router)
+app.include_router(chats.router)
+app.include_router(messages.router)
 
 @app.get("/")
 def read_root():
     """Root endpoint"""
-    return {"message": "Hola Mundo desde FastAPI"}
+    return {"message": "Research Agent API - Sistema de chats y mensajes"}

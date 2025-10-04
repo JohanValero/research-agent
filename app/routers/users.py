@@ -24,11 +24,11 @@ async def create_user(user: UserCreate):
         collection : AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
 
         # Verificar si el usuario ya existe
-        existing : Optional[Dict[str, Any]]  = await collection.find_one({"numero": user.numero})
+        existing : Optional[Dict[str, Any]]  = await collection.find_one({"username": user.username})
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Usuario con número {user.numero} ya existe"
+                detail=f"Usuario con username {user.username} ya existe"
             )
 
         # Preparar documento
@@ -41,7 +41,7 @@ async def create_user(user: UserCreate):
         result = await collection.insert_one(user_dict)
         user_dict["_id"] = str(result.inserted_id)
 
-        logger.info("Usuario creado: %s", user.numero)
+        logger.info("Usuario creado: %s", user.username)
         return UserInDB(**user_dict)
 
     except HTTPException:
@@ -54,19 +54,19 @@ async def create_user(user: UserCreate):
         ) from e
 
 
-@router.get("/{numero}", response_model=UserInDB)
-async def get_user(numero: str):
-    """Obtiene un usuario por su número"""
+@router.get("/{username}", response_model=UserInDB)
+async def get_user(username: str):
+    """Obtiene un usuario por su username"""
     try:
-        logger.debug("get_user: %s", numero)
+        logger.debug("get_user: %s", username)
         db : AsyncIOMotorDatabase = mongodb.get_database()
         collection : AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
 
-        user: Optional[Dict[str, Any]] = await collection.find_one({"numero": numero})
+        user: Optional[Dict[str, Any]] = await collection.find_one({"username": username})
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Usuario {numero} no encontrado"
+                detail=f"Usuario {username} no encontrado"
             )
 
         user["_id"] = str(user["_id"])
@@ -105,24 +105,32 @@ async def list_users(skip: int = 0, limit: int = 100):
         ) from e
 
 
-@router.put("/{numero}", response_model=UserInDB)
-async def update_user(numero: str, user_update: UserUpdate):
+@router.put("/{username}", response_model=UserInDB)
+async def update_user(username: str, user_update: UserUpdate):
     """Actualiza un usuario existente"""
     try:
         db : AsyncIOMotorDatabase = mongodb.get_database()
         collection : AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
 
         # Verificar que existe
-        existing : Optional[Dict[str, Any]]  = await collection.find_one({"numero": numero})
+        existing : Optional[Dict[str, Any]]  = await collection.find_one({"username": username})
         if not existing:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Usuario {numero} no encontrado"
+                detail=f"Usuario {username} no encontrado"
             )
 
+        # Si se está actualizando el username, verificar que no exista otro con ese username
+        if user_update.username and user_update.username != username:
+            username_exists = await collection.find_one({"username": user_update.username})
+            if username_exists:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Username {user_update.username} ya está en uso"
+                )
+
         # Actualizar solo campos proporcionados
-        update_data = {k: v for k,
-                       v in user_update.model_dump().items() if v is not None}
+        update_data = {k: v for k, v in user_update.model_dump().items() if v is not None}
         if not update_data:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -132,16 +140,17 @@ async def update_user(numero: str, user_update: UserUpdate):
         update_data["updated_at"] = datetime.utcnow()
 
         await collection.update_one(
-            {"numero": numero},
+            {"username": username},
             {"$set": update_data}
         )
 
-        # Obtener usuario actualizado
-        updated_user : Dict[str, Any] = await collection.find_one({"numero": numero}) # pyright: ignore[reportAssignmentType]
+        # Obtener usuario actualizado - usar el nuevo username si fue actualizado
+        lookup_username = user_update.username if user_update.username else username
+        updated_user : Dict[str, Any] = await collection.find_one({"username": lookup_username}) # pyright: ignore[reportAssignmentType]
 
         updated_user["_id"] = str(updated_user["_id"])
 
-        logger.info("Usuario actualizado: %s", numero)
+        logger.info("Usuario actualizado: %s", username)
         return UserInDB(**updated_user)
 
     except HTTPException:
@@ -154,21 +163,21 @@ async def update_user(numero: str, user_update: UserUpdate):
         ) from e
 
 
-@router.delete("/{numero}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_user(numero: str):
+@router.delete("/{username}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(username: str):
     """Elimina un usuario de la base de datos"""
     try:
         db = mongodb.get_database()
         collection : AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
 
-        result = await collection.delete_one({"numero": numero})
+        result = await collection.delete_one({"username": username})
         if result.deleted_count == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Usuario {numero} no encontrado"
+                detail=f"Usuario {username} no encontrado"
             )
 
-        logger.info("Usuario eliminado: %s", numero)
+        logger.info("Usuario eliminado: %s", username)
 
     except HTTPException:
         raise
