@@ -2,7 +2,6 @@
 Project: research-agent.py
 File: app/__init__.py
 """
-import os
 import logging
 
 from dotenv import load_dotenv
