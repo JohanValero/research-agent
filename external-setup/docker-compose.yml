@@ -7,7 +7,7 @@ services:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: password123
     ports:
-      - "27017:27017"
+      - "27018:27017"
     volumes:
       - agent-mongodb_data:/data/db
       - agent-mongodb_config:/data/configdb
