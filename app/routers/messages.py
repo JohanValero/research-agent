@@ -11,19 +11,17 @@ from bson import ObjectId
 
 from app.db.mongodb import mongodb
 from app.models.message import MessageCreate, MessageUpdate, MessageInDB
-from app import logger
+from app import logger, COLLECTION_NAME_CHATS, COLLECTION_NAME_MESSAGES
 
 router = APIRouter(prefix="/messages", tags=["messages"])
-
-COLLECTION_NAME: str = "MESSAGES"
 
 @router.post("/", response_model=MessageInDB, status_code=status.HTTP_201_CREATED)
 async def create_message(message: MessageCreate):
     """Crea un nuevo mensaje en la base de datos y actualiza el last_message_id del chat"""
     try:
         db: AsyncIOMotorDatabase = mongodb.get_database()
-        collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
-        chats_collection: AsyncIOMotorCollection = db.get_collection("CHATS")
+        collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_MESSAGES)
+        chats_collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_CHATS)
 
         # Verificar que el chat existe
         if not ObjectId.is_valid(message.chat_id):
@@ -89,7 +87,7 @@ async def get_message(message_id: str):
     """Obtiene un mensaje por su ID"""
     try:
         db: AsyncIOMotorDatabase = mongodb.get_database()
-        collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
+        collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_MESSAGES)
 
         if not ObjectId.is_valid(message_id):
             raise HTTPException(
@@ -122,8 +120,8 @@ async def get_chat_history(chat_id: str):
     """Reconstruye el historial completo del chat siguiendo la cadena de mensajes desde last_message_id"""
     try:
         db: AsyncIOMotorDatabase = mongodb.get_database()
-        chats_collection: AsyncIOMotorCollection = db.get_collection("CHATS")
-        messages_collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
+        chats_collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_CHATS)
+        messages_collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_MESSAGES)
 
         if not ObjectId.is_valid(chat_id):
             raise HTTPException(
@@ -176,7 +174,7 @@ async def list_chat_messages(chat_id: str, skip: int = 0, limit: int = 100):
     """Lista todos los mensajes de un chat con paginación (orden cronológico)"""
     try:
         db: AsyncIOMotorDatabase = mongodb.get_database()
-        collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
+        collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_MESSAGES)
 
         if not ObjectId.is_valid(chat_id):
             raise HTTPException(
@@ -205,7 +203,7 @@ async def update_message(message_id: str, message_update: MessageUpdate):
     """Actualiza un mensaje existente"""
     try:
         db: AsyncIOMotorDatabase = mongodb.get_database()
-        collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
+        collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_MESSAGES)
 
         if not ObjectId.is_valid(message_id):
             raise HTTPException(
@@ -262,7 +260,7 @@ async def delete_message(message_id: str):
     """Elimina un mensaje de la base de datos"""
     try:
         db = mongodb.get_database()
-        collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
+        collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_MESSAGES)
 
         if not ObjectId.is_valid(message_id):
             raise HTTPException(

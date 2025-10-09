@@ -9,7 +9,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase, AsyncIOMotorCollection
 from pymongo import ASCENDING, DESCENDING
 from pymongo.errors import OperationFailure
 
-from app import logger
+from app import logger, COLLECTION_NAME_USERS, COLLECTION_NAME_CHATS, COLLECTION_NAME_MESSAGES
 
 async def create_indexes(db: AsyncIOMotorDatabase) -> None:
     """
@@ -19,9 +19,9 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
     try:
         logger.info("Iniciando creación de índices en MongoDB...")
 
-        users_collection: AsyncIOMotorCollection = db.get_collection("USERS")
-        chats_collection: AsyncIOMotorCollection = db.get_collection("CHATS")
-        messages_collection: AsyncIOMotorCollection = db.get_collection("MESSAGES")
+        users_collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_USERS)
+        chats_collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_CHATS)
+        messages_collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_MESSAGES)
 
         # Índice único en username para búsquedas rápidas y prevenir duplicados
         await users_collection.create_index([("username", ASCENDING)], unique=True, name="idx_username_unique")
@@ -75,7 +75,7 @@ async def list_all_indexes(db: AsyncIOMotorDatabase) -> dict:
     Útil para debugging y verificación.
     """
     try:
-        collections: List[str] = ["USERS", "CHATS", "MESSAGES"]
+        collections: List[str] = [COLLECTION_NAME_USERS, COLLECTION_NAME_CHATS, COLLECTION_NAME_MESSAGES]
         indexes_info: Dict = {}
 
         for collection_name in collections:
@@ -101,9 +101,9 @@ async def verify_indexes(db: AsyncIOMotorDatabase) -> bool:
     """
     try:
         expected_indexes: Dict[str, List[str]] = {
-            "USERS": ["idx_username_unique", "idx_activo"],
-            "CHATS": ["idx_user_updated", "idx_user_id", "idx_chat_activo", "idx_last_message"],
-            "MESSAGES": ["idx_chat_created", "idx_previous_message", "idx_chat_type_created"]
+            COLLECTION_NAME_USERS: ["idx_username_unique", "idx_activo"],
+            COLLECTION_NAME_CHATS: ["idx_user_updated", "idx_user_id", "idx_chat_activo", "idx_last_message"],
+            COLLECTION_NAME_MESSAGES: ["idx_chat_created", "idx_previous_message", "idx_chat_type_created"]
         }
 
         all_present : bool = True

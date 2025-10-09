@@ -10,18 +10,16 @@ from motor.motor_asyncio import AsyncIOMotorDatabase, AsyncIOMotorCollection
 
 from app.db.mongodb import mongodb
 from app.models.user import UserCreate, UserUpdate, UserInDB
-from app import logger
+from app import logger, COLLECTION_NAME_USERS
 
 router = APIRouter(prefix="/users", tags=["users"])
-
-COLLECTION_NAME : str = "USERS"
 
 @router.post("/", response_model=UserInDB, status_code=status.HTTP_201_CREATED)
 async def create_user(user: UserCreate):
     """Crea un nuevo usuario en la base de datos"""
     try:
         db: AsyncIOMotorDatabase = mongodb.get_database()
-        collection : AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
+        collection : AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_USERS)
 
         # Verificar si el usuario ya existe
         existing : Optional[Dict[str, Any]]  = await collection.find_one({"username": user.username})
@@ -60,7 +58,7 @@ async def get_user(username: str):
     try:
         logger.debug("get_user: %s", username)
         db : AsyncIOMotorDatabase = mongodb.get_database()
-        collection : AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
+        collection : AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_USERS)
 
         user: Optional[Dict[str, Any]] = await collection.find_one({"username": username})
         if not user:
@@ -87,7 +85,7 @@ async def list_users(skip: int = 0, limit: int = 100):
     """Lista todos los usuarios con paginación"""
     try:
         db : AsyncIOMotorDatabase = mongodb.get_database()
-        collection : AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
+        collection : AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_USERS)
 
         cursor = collection.find().skip(skip).limit(limit)
         users = await cursor.to_list(length=limit)
@@ -110,7 +108,7 @@ async def update_user(username: str, user_update: UserUpdate):
     """Actualiza un usuario existente"""
     try:
         db : AsyncIOMotorDatabase = mongodb.get_database()
-        collection : AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
+        collection : AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_USERS)
 
         # Verificar que existe
         existing : Optional[Dict[str, Any]]  = await collection.find_one({"username": username})
@@ -168,7 +166,7 @@ async def delete_user(username: str):
     """Elimina un usuario de la base de datos"""
     try:
         db = mongodb.get_database()
-        collection : AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
+        collection : AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_USERS)
 
         result = await collection.delete_one({"username": username})
         if result.deleted_count == 0:

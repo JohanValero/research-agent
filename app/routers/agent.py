@@ -2,20 +2,21 @@
 Project: research-agent
 File: app/routers/agent.py
 """
-from typing import AsyncGenerator, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 import json
 import traceback
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
+from langgraph.graph.state import CompiledStateGraph
 
 from app.models.item import ConsultaRequest
-from app.graph.graph import create_research_graph
+from app.graph.graph import GraphState, create_research_graph
 from app import logger
 
 
 router: APIRouter = APIRouter(prefix="/agent", tags=["consulta"])
-research_graph = create_research_graph()
+research_graph : CompiledStateGraph = create_research_graph()
 
 
 async def generate_response_from_graph(
@@ -28,12 +29,13 @@ async def generate_response_from_graph(
     inmediatamente, sin esperar a que el nodo complete.
     """
 
-    initial_state = {
+    initial_state : GraphState = {
         "query": query,
         "userid": userid,
         "chatid": chatid or "default",
         "messages": [],
-        "current_step": "starting"
+        "current_step": "starting",
+        "conversation_history": []
     }
 
     try:
@@ -44,20 +46,20 @@ async def generate_response_from_graph(
 
         # astream_events captura cada yield de los nodos en tiempo real
         async for event in research_graph.astream_events(initial_state, version="v2"):
-            event_type = event.get("event")
+            event_type : str = event.get("event")
 
             # Capturamos eventos de nodos que hacen yield
             if event_type == "on_chain_stream":
-                chunk = event.get("data", {}).get("chunk", {})
+                chunk : Dict[str, Any] = event.get("data", {}).get("chunk", {})
 
                 # Extraer información del chunk
-                node_name = event.get("name", "unknown")
-                messages = chunk.get("messages", [])
-                current_step = chunk.get("current_step", "")
+                node_name : str = event.get("name", "unknown")
+                messages : List = chunk.get("messages", [])
+                current_step : str = chunk.get("current_step", "")
 
                 # Enviar cada mensaje inmediatamente
                 for message in messages:
-                    stream_data = {
+                    stream_data : Dict[str, Any] = {
                         "node": node_name,
                         "type": message.get("type", "info"),
                         "content": message.get("content", ""),
@@ -65,20 +67,19 @@ async def generate_response_from_graph(
                         "step": current_step
                     }
 
-                    json_data = json.dumps(stream_data, ensure_ascii=False)
+                    json_data : str = json.dumps(stream_data, ensure_ascii=False)
                     yield f"data: {json_data}\n\n"
                     logger.debug("Enviado desde %s: %s...",
                         node_name, message.get('content', '')[:50])
 
         # Señal de finalización
         logger.info("Procesamiento completado - User: %s", userid)
-        data = {
+        data : Dict[str, str] = {
             'type': 'done',
             'content': 'Procesamiento completado',
             'status': 'success'
         }
         yield f"data: {json.dumps(data)}\n\n"
-
     except (ValueError, KeyError, TypeError, RuntimeError) as e:
         logger.error("Error en procesamiento: %s", str(e))
         traceback.print_exception(e)

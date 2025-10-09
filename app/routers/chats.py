@@ -11,19 +11,17 @@ from bson import ObjectId
 
 from app.db.mongodb import mongodb
 from app.models.chat import ChatCreate, ChatUpdate, ChatInDB
-from app import logger
+from app import logger, COLLECTION_NAME_USERS, COLLECTION_NAME_CHATS
 
 router = APIRouter(prefix="/chats", tags=["chats"])
-
-COLLECTION_NAME: str = "CHATS"
 
 @router.post("/", response_model=ChatInDB, status_code=status.HTTP_201_CREATED)
 async def create_chat(chat: ChatCreate):
     """Crea un nuevo chat en la base de datos"""
     try:
         db: AsyncIOMotorDatabase = mongodb.get_database()
-        collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
-        users_collection: AsyncIOMotorCollection = db.get_collection("USERS")
+        collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_CHATS)
+        users_collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_USERS)
 
         # Verificar formato de user_id
         if not ObjectId.is_valid(chat.user_id):
@@ -69,7 +67,7 @@ async def get_chat(chat_id: str):
     """Obtiene un chat por su ID"""
     try:
         db: AsyncIOMotorDatabase = mongodb.get_database()
-        collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
+        collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_CHATS)
 
         # Validar formato de ObjectId
         if not ObjectId.is_valid(chat_id):
@@ -103,7 +101,7 @@ async def list_user_chats(user_id: str, skip: int = 0, limit: int = 100):
     """Lista todos los chats de un usuario con paginación"""
     try:
         db: AsyncIOMotorDatabase = mongodb.get_database()
-        collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
+        collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_CHATS)
 
         # Validar formato de user_id
         if not ObjectId.is_valid(user_id):
@@ -133,7 +131,7 @@ async def update_chat(chat_id: str, chat_update: ChatUpdate):
     """Actualiza un chat existente"""
     try:
         db: AsyncIOMotorDatabase = mongodb.get_database()
-        collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
+        collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_CHATS)
 
         if not ObjectId.is_valid(chat_id):
             raise HTTPException(
@@ -186,7 +184,7 @@ async def delete_chat(chat_id: str):
     """Elimina un chat de la base de datos"""
     try:
         db = mongodb.get_database()
-        collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME)
+        collection: AsyncIOMotorCollection = db.get_collection(COLLECTION_NAME_CHATS)
 
         if not ObjectId.is_valid(chat_id):
             raise HTTPException(
