@@ -5,7 +5,7 @@ File: app/graph/graph.py
 Grafo de investigación que integra un LLM real para generar respuestas.
 """
 import asyncio
-from typing import AsyncGenerator, TypedDict
+from typing import AsyncGenerator, Optional, TypedDict
 from langgraph.graph import StateGraph, END
 from langgraph.graph.state import CompiledStateGraph
 
@@ -32,17 +32,6 @@ async def node_analyze_query(state: GraphState) -> AsyncGenerator:
     """
     query = state["query"]
 
-    # Mensaje inicial
-    yield {
-        **state,
-        "messages": [{
-            "type": "analysis",
-            "content": "Analizando tu consulta...",
-            "details": {"step": "analysis_start"}
-        }],
-        "current_step": "analyzing"
-    }
-
     try:
         # Preparar el prompt para el análisis
         system_prompt = """Eres un asistente experto en análisis de consultas. Tu trabajo es:
@@ -63,7 +52,7 @@ Proporciona:
 - Enfoque sugerido"""
 
         # Llamar al LLM para obtener el análisis
-        analysis_result = await llm_client.generate_response(
+        analysis_result : Optional[str] = await llm_client.generate_response(
             prompt=analysis_prompt,
             system_prompt=system_prompt,
             temperature=0.3,  # Temperatura baja para respuestas más consistentes
@@ -76,7 +65,7 @@ Proporciona:
         yield {
             **state,
             "messages": [{
-                "type": "analysis",
+                "type": "thought",
                 "content": f"Análisis completado:\n\n{analysis_result}",
                 "details": {
                     "query_length": len(query),
@@ -91,7 +80,7 @@ Proporciona:
         yield {
             **state,
             "messages": [{
-                "type": "analysis",
+                "type": "thought",
                 "content": f"Continuando con la consulta original: {query}",
                 "details": {"step": "analysis_fallback"}
             }],
@@ -107,56 +96,17 @@ async def node_research(state: GraphState) -> AsyncGenerator:
     En una implementación completa, aquí podrías integrar búsquedas web,
     consultas a bases de datos vectoriales, o APIs externas.
     """
-    query = state["query"]
+    query : str = state["query"]
 
     # Informar inicio de investigación
     yield {
         **state,
         "messages": [{
-            "type": "research",
-            "content": "Iniciando investigación en fuentes disponibles...",
+            "type": "thought",
+            "content": f"Iniciando investigación en fuentes disponibles para la consulta {query}",
             "details": {"step": "research_start"}
         }],
         "current_step": "researching"
-    }
-
-    # Simular búsqueda en diferentes fuentes
-    # En producción, aquí irían llamadas reales a APIs, bases de datos, etc.
-    sources = [
-        "Base de conocimiento interna",
-        "Documentación técnica",
-        "Fuentes web relevantes"
-    ]
-
-    for i, source in enumerate(sources, 1):
-        yield {
-            **state,
-            "messages": [{
-                "type": "research",
-                "content": f"Consultando: {source}",
-                "details": {
-                    "source": source,
-                    "progress": f"{i}/{len(sources)}",
-                    "step": "researching"
-                }
-            }],
-            "current_step": "researching"
-        }
-        # Simular tiempo de búsqueda
-        await asyncio.sleep(0.5)
-
-    # Investigación completada
-    yield {
-        **state,
-        "messages": [{
-            "type": "research",
-            "content": f"Investigación completada en {len(sources)} fuentes",
-            "details": {
-                "sources_count": len(sources),
-                "step": "research_complete"
-            }
-        }],
-        "current_step": "research_completed"
     }
 
 
@@ -174,7 +124,7 @@ async def node_generate_response(state: GraphState) -> AsyncGenerator:
     yield {
         **state,
         "messages": [{
-            "type": "response",
+            "type": "text",
             "content": "Generando respuesta...",
             "details": {"step": "response_preparation"}
         }],
@@ -183,8 +133,9 @@ async def node_generate_response(state: GraphState) -> AsyncGenerator:
 
     try:
         # Construir el contexto para el LLM
-        system_prompt = """Eres un asistente de investigación útil y preciso. Tu trabajo es proporcionar 
-respuestas detalladas, bien estructuradas y fáciles de entender. Siempre:
+        system_prompt = """Eres un asistente de investigación útil y preciso.
+Tu trabajo es proporcionar respuestas detalladas, bien estructuradas y fáciles de entender.
+Siempre:
 - Responde de forma clara y organizada
 - Usa ejemplos cuando sea apropiado
 - Si no estás seguro de algo, dilo claramente
@@ -205,7 +156,7 @@ respuestas detalladas, bien estructuradas y fáciles de entender. Siempre:
         messages.append({"role": "user", "content": query})
 
         # Variable para acumular la respuesta completa
-        full_response = ""
+        full_response : str = ""
 
         # Generar respuesta con streaming
         # El LLM enviará fragmentos de texto a medida que los genera
@@ -220,7 +171,7 @@ respuestas detalladas, bien estructuradas y fáciles de entender. Siempre:
             yield {
                 **state,
                 "messages": [{
-                    "type": "response",
+                    "type": "text",
                     "content": chunk,  # Fragmento individual
                     "details": {
                         "step": "streaming_response",
@@ -230,14 +181,13 @@ respuestas detalladas, bien estructuradas y fáciles de entender. Siempre:
                 "current_step": "generating"
             }
 
-        logger.info("Respuesta generada completamente - longitud: %d caracteres",
-                    len(full_response))
+        logger.info("Respuesta generada completamente - longitud: %d caracteres", len(full_response))
 
         # Mensaje final indicando que la generación terminó
         yield {
             **state,
             "messages": [{
-                "type": "response",
+                "type": "text",
                 "content": "",  # Vacío porque ya enviamos todo el contenido
                 "details": {
                     "step": "response_complete",
@@ -255,7 +205,7 @@ respuestas detalladas, bien estructuradas y fáciles de entender. Siempre:
         yield {
             **state,
             "messages": [{
-                "type": "response",
+                "type": "text",
                 "content": f"Lo siento, ocurrió un error al generar la respuesta. Error: {str(e)}",
                 "details": {
                     "step": "response_error",
@@ -278,7 +228,7 @@ async def node_finalize(state: GraphState) -> AsyncGenerator:
     yield {
         **state,
         "messages": [{
-            "type": "finalize",
+            "type": "text",
             "content": "Validando calidad de la respuesta...",
             "details": {"check": "quality", "step": "finalizing"}
         }],
@@ -286,36 +236,12 @@ async def node_finalize(state: GraphState) -> AsyncGenerator:
     }
     await asyncio.sleep(0.3)
 
-    # Verificación de seguridad
-    yield {
-        **state,
-        "messages": [{
-            "type": "finalize",
-            "content": "Verificando seguridad del contenido...",
-            "details": {"check": "security", "step": "finalizing"}
-        }],
-        "current_step": "finalizing"
-    }
-    await asyncio.sleep(0.3)
-
-    # Formateo final
-    yield {
-        **state,
-        "messages": [{
-            "type": "finalize",
-            "content": "Aplicando formato final...",
-            "details": {"check": "formatting", "step": "finalizing"}
-        }],
-        "current_step": "finalizing"
-    }
-    await asyncio.sleep(0.2)
-
     # Procesamiento completado
     yield {
         **state,
         "messages": [{
-            "type": "finalize",
-            "content": "✓ Procesamiento completado exitosamente",
+            "type": "text",
+            "content": "Procesamiento completado exitosamente",
             "details": {
                 "total_steps": 4,
                 "step": "finalization_complete",
@@ -325,8 +251,7 @@ async def node_finalize(state: GraphState) -> AsyncGenerator:
         "current_step": "completed"
     }
 
-    logger.info("Procesamiento finalizado para usuario: %s",
-                state.get("userid"))
+    logger.info("Procesamiento finalizado para usuario: %s", state.get("userid"))
 
 
 def create_research_graph() -> CompiledStateGraph:

@@ -202,6 +202,7 @@
         .fragment.text p {
             line-height: 1.6;
             margin: 0;
+            white-space: pre-wrap;
         }
         
         .fragment.thought {
@@ -229,6 +230,7 @@
         
         .thought-content {
             margin-top: 8px;
+            white-space: pre-wrap;
         }
         
         .thought-content.collapsed {
@@ -307,6 +309,20 @@
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.3; }
+        }
+
+        .cursor-blink {
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background: #667eea;
+            margin-left: 2px;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
         }
     </style>
 </head>
@@ -627,10 +643,10 @@
                     return `
                         <div class="fragment thought">
                             <div class="thought-toggle" onclick="toggleThought('${thoughtId}')">
-                                <span id="${thoughtId}-icon">▼</span>
+                                <span id="${thoughtId}-icon">▶</span>
                                 <span>Pensamiento interno</span>
                             </div>
-                            <div class="thought-content" id="${thoughtId}">
+                            <div class="thought-content collapsed" id="${thoughtId}">
                                 <p>${escapeHtml(fragment.content)}</p>
                             </div>
                         </div>
@@ -697,14 +713,12 @@
             }
             
             try {
-                // Deshabilitar input mientras se procesa
                 document.getElementById('messageInput').disabled = true;
                 document.getElementById('sendMessageBtn').disabled = true;
                 isStreaming = true;
 
                 console.log('Enviando mensaje al chat:', currentChatId, 'previous:', lastMessageId);
                 
-                // Crear el mensaje del usuario en la UI inmediatamente
                 const userMessage = {
                     _id: 'temp-user-' + Date.now(),
                     user_type: 'HUMAN',
@@ -715,7 +729,6 @@
                 appendMessageToUI(userMessage);
                 document.getElementById('messageInput').value = '';
 
-                // Crear mensaje temporal del agente
                 const agentMessageId = 'temp-agent-' + Date.now();
                 const agentMessage = {
                     _id: agentMessageId,
@@ -726,7 +739,6 @@
                 
                 appendMessageToUI(agentMessage, true);
 
-                // Realizar request con streaming
                 const response = await fetch(`${API_BASE}/chat-stream/send`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -762,7 +774,6 @@
                     }
                 }
 
-                // Recargar mensajes para obtener los IDs correctos de la BD
                 await loadMessages();
 
             } catch (error) {
@@ -793,29 +804,99 @@
             if (data.type === 'user_message_saved') {
                 console.log('Mensaje de usuario guardado:', data.message_id);
             } else if (data.type === 'agent_start') {
-                // Mensaje de inicio del agente
                 console.log('Agente iniciado');
             } else if (data.type === 'done') {
                 console.log('Streaming completado');
                 messageElement.classList.remove('streaming');
                 const indicator = messageElement.querySelector('.streaming-indicator');
                 if (indicator) indicator.remove();
+                
+                // Remover cursores parpadeantes
+                const cursors = contentElement.querySelectorAll('.cursor-blink');
+                cursors.forEach(cursor => cursor.remove());
             } else if (data.type === 'error') {
                 showStatus('Error: ' + data.content, true);
             } else {
-                // Agregar fragmento
-                const fragmentType = ['analysis', 'research'].includes(data.type) ? 'thought' : 'text';
-                const fragment = {
-                    type: fragmentType,
-                    content: data.content
-                };
-                
-                const fragmentHtml = renderFragment(fragment);
-                contentElement.insertAdjacentHTML('beforeend', fragmentHtml);
+                // Determinar el tipo de fragmento
+                const fragmentType = ['analysis', 'research', 'thought'].includes(data.type) ? 'thought' : 'text';
+                const isChunk = data.details?.is_chunk === true;
+
+                if (isChunk) {
+                    // Es un chunk: agregar al fragmento actual del mismo tipo
+                    let lastFragment = contentElement.querySelector(`.fragment.${fragmentType}:last-of-type`);
+                    
+                    if (!lastFragment) {
+                        // No existe fragmento previo, crear uno nuevo
+                        const fragment = {
+                            type: fragmentType,
+                            content: data.content
+                        };
+                        const fragmentHtml = renderFragmentForStreaming(fragment);
+                        contentElement.insertAdjacentHTML('beforeend', fragmentHtml);
+                    } else {
+                        // Existe fragmento previo, agregar contenido
+                        if (fragmentType === 'thought') {
+                            const thoughtContent = lastFragment.querySelector('.thought-content p');
+                            if (thoughtContent) {
+                                // Remover cursor si existe
+                                const cursor = thoughtContent.querySelector('.cursor-blink');
+                                if (cursor) cursor.remove();
+                                
+                                thoughtContent.textContent += data.content;
+                                // Agregar nuevo cursor
+                                thoughtContent.insertAdjacentHTML('beforeend', '<span class="cursor-blink"></span>');
+                            }
+                        } else {
+                            const textParagraph = lastFragment.querySelector('p');
+                            if (textParagraph) {
+                                // Remover cursor si existe
+                                const cursor = textParagraph.querySelector('.cursor-blink');
+                                if (cursor) cursor.remove();
+                                
+                                textParagraph.textContent += data.content;
+                                // Agregar nuevo cursor
+                                textParagraph.insertAdjacentHTML('beforeend', '<span class="cursor-blink"></span>');
+                            }
+                        }
+                    }
+                } else {
+                    // No es un chunk: crear fragmento completo
+                    const fragment = {
+                        type: fragmentType,
+                        content: data.content
+                    };
+                    
+                    const fragmentHtml = renderFragment(fragment);
+                    contentElement.insertAdjacentHTML('beforeend', fragmentHtml);
+                }
                 
                 // Auto-scroll
                 const container = document.getElementById('messagesContainer');
                 container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        function renderFragmentForStreaming(fragment) {
+            switch (fragment.type) {
+                case 'text':
+                    return `<div class="fragment text"><p>${escapeHtml(fragment.content)}<span class="cursor-blink"></span></p></div>`;
+                
+                case 'thought':
+                    const thoughtId = 'thought-' + Math.random().toString(36).substr(2, 9);
+                    return `
+                        <div class="fragment thought">
+                            <div class="thought-toggle" onclick="toggleThought('${thoughtId}')">
+                                <span id="${thoughtId}-icon">▶</span>
+                                <span>Pensamiento interno</span>
+                            </div>
+                            <div class="thought-content collapsed" id="${thoughtId}">
+                                <p>${escapeHtml(fragment.content)}<span class="cursor-blink"></span></p>
+                            </div>
+                        </div>
+                    `;
+                
+                default:
+                    return `<div class="fragment"><p>${escapeHtml(fragment.content)}</p></div>`;
             }
         }
         

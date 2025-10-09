@@ -4,7 +4,7 @@ File: app/routers/chat_stream.py
 
 Router actualizado para manejar streaming del LLM de forma eficiente.
 """
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator, Dict, List, Optional
 import json
 from datetime import datetime
 
@@ -15,7 +15,7 @@ from bson import ObjectId
 
 from app.db.mongodb import mongodb
 from app.models.message import MessageCreate
-from app.graph.graph import create_research_graph
+from app.graph.graph import GraphState, create_research_graph
 from app import logger
 
 router = APIRouter(prefix="/chat-stream", tags=["chat-stream"])
@@ -91,7 +91,7 @@ async def process_user_message_and_respond(
             # En producción, podrías ajustar este número basándote en el límite de tokens del modelo
             cursor = messages_collection.find({"chat_id": chat_id}).sort("created_at", -1).limit(10)
 
-            history_messages = await cursor.to_list(length=10)
+            history_messages : List = await cursor.to_list(length=10)
             history_messages.reverse()  # Ordenar cronológicamente
 
             # Convertir a formato OpenAI para el LLM
@@ -109,26 +109,22 @@ async def process_user_message_and_respond(
                         "content": " ".join(content_parts)
                     })
 
-            logger.info("Historial cargado: %d mensajes previos",
-                        len(conversation_history))
+            logger.info("Historial cargado: %d mensajes previos", len(conversation_history))
 
         except Exception as e:
-            logger.warning(
-                "Error cargando historial: %s. Continuando sin contexto.", str(e))
-            conversation_history = []
+            logger.warning("Error cargando historial: %s. Continuando sin contexto.", str(e))
+            conversation_history : List[Dict] = []
 
-        # ===== EJECUTAR AGENTE CON STREAMING =====
-        # Estas variables acumulan los diferentes tipos de contenido
-        agent_fragments = []  # Todos los fragmentos para guardar
-        response_text_chunks = []  # Solo los chunks de texto de la respuesta final
+        agent_fragments : List = []  # Todos los fragmentos para guardar
+        response_text_chunks : List[str] = []  # Solo los chunks de texto de la respuesta final
 
-        initial_state = {
+        initial_state : GraphState = {
             "query": user_message,
             "userid": chat.get("user_id", "unknown"),
             "chatid": chat_id,
             "messages": [],
             "current_step": "starting",
-            "conversation_history": conversation_history  # Pasar el contexto al grafo
+            "conversation_history": conversation_history
         }
 
         # Notificar inicio del procesamiento
@@ -136,18 +132,22 @@ async def process_user_message_and_respond(
 
         # Procesar eventos del grafo
         async for event in research_graph.astream_events(initial_state, version="v2"):
-            event_type = event.get("event")
+            event_type : str = event.get("event")
 
             if event_type == "on_chain_stream":
-                chunk = event.get("data", {}).get("chunk", {})
-                node_name = event.get("name", "unknown")
-                messages = chunk.get("messages", [])
-                current_step = chunk.get("current_step", "")
+                tags : List[str] = event.get("tags", [])
+                if not any(tag.startswith("seq:step:") for tag in tags):
+                    continue
+
+                chunk : Dict = event.get("data", {}).get("chunk", {})
+                node_name : str = event.get("name", "unknown")
+                messages : List[Dict] = chunk.get("messages", [])
+                current_step : str = chunk.get("current_step", "")
 
                 for message in messages:
-                    message_type = message.get("type", "info")
-                    content = message.get("content", "")
-                    details = message.get("details", {})
+                    message_type : str = message.get("type", "info")
+                    content : str = message.get("content", "")
+                    details : Dict = message.get("details", {})
 
                     # Preparar datos para el cliente
                     stream_data = {
@@ -161,21 +161,16 @@ async def process_user_message_and_respond(
                     # Enviar al cliente en tiempo real
                     yield f"data: {json.dumps(stream_data, ensure_ascii=False)}\n\n"
 
-                    # ===== ACUMULAR FRAGMENTOS PARA GUARDAR =====
-                    # Distinguir entre diferentes tipos de contenido:
-                    # - analysis/research = pensamientos internos (thoughts)
-                    # - response = respuesta real al usuario (text)
-                    # - finalize = metadata de finalización (no se guarda)
-
-                    if message_type in ["analysis", "research"]:
-                        # Pensamientos del agente durante el procesamiento
-                        if content.strip():  # Solo guardar si hay contenido
+                    # Pensamientos del agente durante el procesamiento
+                    if message_type in ["thought"]:
+                        # Solo guardar si hay contenido
+                        if content.strip():
                             agent_fragments.append({
                                 "type": "thought",
                                 "content": content
                             })
 
-                    elif message_type == "response":
+                    elif message_type in ["text"]:
                         # Respuesta real al usuario
                         # Verificar si es un chunk de streaming o mensaje completo
                         is_chunk = details.get("is_chunk", False)
@@ -219,7 +214,7 @@ async def process_user_message_and_respond(
         }
 
         result = await messages_collection.insert_one(agent_msg_dict)
-        agent_message_id = str(result.inserted_id)
+        agent_message_id : str = str(result.inserted_id)
 
         # Actualizar chat con el último mensaje del agente
         await chats_collection.update_one(
@@ -227,8 +222,7 @@ async def process_user_message_and_respond(
             {"$set": {"last_message_id": agent_message_id, "updated_at": now}}
         )
 
-        logger.info("Mensaje del agente guardado: %s con %d fragmentos",
-                    agent_message_id, len(agent_fragments))
+        logger.info("Mensaje del agente guardado: %s con %d fragmentos", agent_message_id, len(agent_fragments))
 
         # Notificar finalización exitosa
         yield f"data: {json.dumps({'type': 'done', 'message_id': agent_message_id, 'status': 'success'})}\n\n"

@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import logger
-from app.routers import agent, items, users, chats, messages, chat_stream
+from app.routers import agent, users, chats, messages, chat_stream
 from app.db.mongodb import mongodb
 from app.db.startup import create_indexes, verify_indexes
 
@@ -39,7 +39,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(items.router)
 app.include_router(agent.router)
 app.include_router(users.router)
 app.include_router(chats.router)
