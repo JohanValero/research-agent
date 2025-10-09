@@ -5,4 +5,5 @@ langgraph
 motor
 pymongo
 requests
+openai
 python-dotenv
